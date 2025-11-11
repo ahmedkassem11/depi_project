@@ -23,7 +23,9 @@ pipeline {
                         -   name: kaniko
                             image: gcr.io/kaniko-project/executor:debug
                             command:
-                                - cat
+                                - /busybox/sleep
+                            args:
+                                - 9999
                             tty: true
                         
             '''
@@ -67,8 +69,8 @@ pipeline {
                         }
                         EOF
                         /kaniko/executor \
-                            --context pwd \
-                            --dockerfile Dockerfile \
+                            --context $WORKSPACE \
+                            --dockerfile $WORKSPACE/Dockerfile \
                             --destination $DOCKER_IMAGE \
                             --cache=true \
                             --verbosity=info \
