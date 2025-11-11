@@ -34,7 +34,7 @@ pipeline {
   }
 
   environment {
-        GIT_REPO = 'https://github.com/ahmedkassem11/depi_project'
+        GIT_REPO = 'https://github.com/ahmedkassem11/depi_project.git'
         GIT_BRANCH = 'main'
         DOCKER_IMAGE = 'ahmedkassem29/depi_gp_image'
         DOCKER_TAG = "${env.BUILD_NUMBER}"
