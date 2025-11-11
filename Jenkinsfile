@@ -1,0 +1,102 @@
+pipeline {
+  agent {
+    kubernetes {
+      yaml '''
+                apiVersion: v1
+                kind: Pod
+                metadata:
+                    name: jenkins-agent-pod
+                    labels:
+                        app: jenkins-agent
+                spec:
+                    serviceAccountName: jenkins
+                    containers:
+                        -   name: git
+                            image: alpine/git:latest
+                            command:
+                                - sleep
+                            args:
+                                - 99d
+                            tty: true
+
+                        
+                        -   name: kaniko
+                            image: gcr.io/kaniko-project/executor:debug
+                            command:
+                                - cat
+                            tty: true
+                        
+            '''
+    }
+  }
+
+  environment {
+        GIT_REPO = 'https://github.com/ahmedkassem11/depi_project.git'
+        GIT_BRANCH = 'main'
+        DOCKER_IMAGE = 'ahmedkassem29/depi_gp_image'
+        DOCKER_TAG = "${env.BUILD_NUMBER}"
+        ARGOCD_SERVER = 'argocd-server.argocd.svc.cluster.local'
+        ARGOCD_APP = 'depi-app'
+  }
+
+  stages {
+    stage('pull code') {
+      steps {
+        container('git') {
+          sh "git clone -b $GIT_BRANCH $GIT_REPO"
+        }
+      }
+    }
+
+    stage('Build docker image and push to docker hub') {
+      steps {
+        withCredentials([usernamePassword(
+                            credentialsId: 'dockerhub',
+                            usernameVariable: 'DOCKER_USER',
+                            passwordVariable: 'DOCKER_PASS'
+                        )]) {
+          container('kaniko') {
+            sh """
+                        cat > /kaniko/.docker/config.json <<EOF
+                        {
+                            "auths": {
+                                        "https://index.docker.io/v1/": {
+                                            "auth": "\$(echo -n $DOCKER_USER:$DOCKER_PASS | base64 | tr '\n')"
+                                        }
+                            }
+                        }
+                        EOF
+                        /kaniko/executor \
+                            --context pwd \
+                            --dockerfile Dockerfile \
+                            --destination $DOCKER_IMAGE \
+                            --cache=true \
+                            --verbosity=info \
+                            --snapshot-mode=redo
+                    """
+          }
+                        }
+      }
+    }
+
+   
+
+    /*stage("sync argocd"){
+      steps{
+        withCredentials([string(credentialsId: 'argocd-auth-token', variable: 'ARGOCD_AUTH_TOKEN')]) {
+            container('argocd-syncer'){
+                sh '''
+                    argocd login $ARGOCD_SERVER --username admin --auth-token $ARGOCD_AUTH_TOKEN --insecure
+                    argocd app sync $ARGOCD_APP --prune
+                    argocd app wait $ARGOCD_APP --health
+                '''
+            }
+        }
+        
+      }
+    }*/
+    
+      
+    
+  }
+}
